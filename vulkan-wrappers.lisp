@@ -11,7 +11,8 @@
 			 value ;;(:offset-2d (:x 10 :y 20) :extent-2d (:width 30 :height 40))
 			 previous-var
 			 gensyms-book
-			 )
+			 &optional
+			   (index-of-this-member 0))
   
   (let ((members (gethash type *structs-plist-hash*))
 	(forms '()))
@@ -45,7 +46,8 @@
 		      struct
 		      (nth current-index array)
 		      this-let-gensym
-		      gensyms-book)) forms))))
+		      gensyms-book
+		      current-index)) forms))))
 	     (push `(setf current-pointer  (inc-pointer ,previous-var (* (foreign-type-size '(:struct ,type)) 0))) forms)
 	     (if (car array)
 		(push `(setf (foreign-slot-value ,var '(:struct ,type) ,t-slot-name) ,this-let-gensym) forms)
@@ -121,7 +123,8 @@
 		 (if (eql (parse-pointer t-type) :char)
 		     (push  `(setf (mem-ref (inc-pointer ,this-let-gensym
 							 (* ,(length (cadr v-value)) (foreign-type-size :char))) :char) 0) forms))
-		 (push `(setf (foreign-slot-value current-pointer '(:struct ,type) ,t-slot-name) ,this-let-gensym) forms)))
+		  (push `(setf (foreign-slot-value (inc-pointer ,previous-var (* (foreign-type-size '(:struct ,type)) ,index-of-this-member))
+						   '(:struct ,type) ,t-slot-name) ,this-let-gensym) forms)))
 		 (unless (listp v-value)
 		   (push `(setf (foreign-slot-value ,var '(:struct ,type) ,t-slot-name) ,v-value) forms)))
 
@@ -138,7 +141,7 @@
 			  (dotimes (index-one (length (getf (car value) t-slot-name)))
 			    (push `(setf bitfield-pointer (inc-pointer ,this-let-gensym
 								       (* ,index-one (foreign-type-size ',(parse-pointer t-type))))) forms)
-			    (push `(setf (mem-ref bitfield-pointer ',(parse-pointer t-type)) (foreign-bitfield-value ',(parse-pointer t-type) ,v-value)) forms))
+			    (push `(setf (mem-ref bitfield-pointer ',(parse-pointer t-type)) (foreign-bitfield-value ',(parse-pointer t-type) ,(car v-value))) forms))
 			  (push `(setf (foreign-slot-value ,var '(:struct ,type) ,t-slot-name) ,this-let-gensym) forms)))))
 		
 		((eql :pointer (car (alexandria:ensure-list t-type))) ;; pointer to opaque types
@@ -242,7 +245,7 @@
        do (funcall (car book) struct 1)
 	 (get-structures (gethash struct *structs-plist-hash*) (getf (car tree-value) slot-name) book)
 	 
-       when (and (not struct) (parse-pointer type) (not (eql (car (alexandria:ensure-list (parse-pointer type))) :union))) ;; pointer to uint8/uint32/uint64/float/char
+       when (and (not struct) (parse-pointer type) (cffi-type-p (car (alexandria:ensure-list (parse-pointer type))))) ;; pointer to uint8/uint32/uint64/float/char
        do (if (eql (parse-pointer type) :char)
 	      (if (not (eql slot-name :p-code))
 			    (funcall (car book) (parse-pointer type) (+ 1 (length (alexandria:ensure-list (cadr (first (getf (car tree-value) slot-name))))))))
@@ -254,6 +257,9 @@
           (dolist (union-value  (getf (car tree-value) slot-name))
 	    (cond ((eql (car union-value) :color) (funcall (car book) '%vk::clear-color-value 1))
 		  ((eql (car union-value) :clear-depth-stencil-value) (funcall (car book) '%vk::clear-depth-stencil-value 1))))
+
+       when (and (not struct) (parse-pointer type) (member (car (alexandria:ensure-list (parse-pointer type))) *total-bitfields*)) ;; pointer to bitfield
+	 do (funcall (car book) (parse-pointer type) 1)
 	 
        when (and (not struct) (not (parse-pointer type)) (eql (car (alexandria:ensure-list type)) :union)) ;; union
        do (funcall (car book) (cadr type) 1)))

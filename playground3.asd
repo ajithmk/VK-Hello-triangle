@@ -6,11 +6,16 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (#:cl-glfw3 #:alexandria #:cl-vulkan #:cffi #:iterate)
+  :depends-on (#:cl-glfw3 #:alexandria #:cl-vulkan #:cffi #:iterate #:cl-utilities #:vocabulary #:obj-reader)
   :components ((:file "package")
 	       (:file "vulkan-type-info")
 	       (:file "vulkan-structs-values")
+		   (:file "command-buffer-structs-values")
+		   (:file "render-structs-values")
 	       (:file "vulkan-wrappers")
 	       (:file "wrappers")
+	       (:file "global-vulkan-state")
+           (:file "buffer-memory")
+           (:file "staging-buffers")
 	       (:file "main")
 	       (:file "scratch")))

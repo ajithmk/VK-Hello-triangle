@@ -20,11 +20,12 @@
   (:uv (:struct vec2) :offset 48))
   
 (defun number-of-vertices (file)
+  (declare (optimize (debug 3) (space 0) (safety 1)))
   (with-open-file (f file)
-    (iter (for line next (read-line f nil nil))
-	  (if (not line) (terminate))
-	  (if (not (string= line ""))
-	      (counting (string= (subseq line 0 2) "v "))))))
+    (let ((one-thing))
+      (setf one-thing (read f))
+      (break)
+      )))
 
 (defun pointer-test-bed (file)
   (let ((main-pointer nil)

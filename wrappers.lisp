@@ -71,7 +71,8 @@
 	 (with-foreign-objects ((sm '(:pointer :uint32)))
 	      (setf (mem-ref sm '(:pointer :uint32)) (null-pointer))
 	      (let ((*code-size* file-size)
-		    (*code-pointer* ptr))
+		    (*code-pointer* ptr)
+		    (*flags* nil))
 	     
 	     (vk::awith-vk-structs ((sm-struct %vk:shader-module-create-info *shader-module-value*))
 	   (%vk::create-shader-module device sm-struct (null-pointer) sm)
@@ -81,30 +82,43 @@
 (defun create-render-pass (device)
   (with-foreign-objects ((renderpass '%vk::render-pass))
     (setf (mem-ref renderpass '%vk::render-pass) (null-pointer))
-  (vk::awith-vk-structs ((render-pass-info %vk::render-pass-create-info *render-pass-info-value*))
-  (%vk::create-render-pass device render-pass-info (null-pointer) renderpass)
-    (let ((v nil))
-      (setf v (mem-ref renderpass '%vk::render-pass))
-      (unless (null-pointer-p v) v)
-      ))))
+    (let ((*flags* nil))
+    (vk::awith-vk-structs ((render-pass-info %vk::render-pass-create-info *render-pass-info-value*))
+			  (%vk::create-render-pass device render-pass-info (null-pointer) renderpass)
+			  (let ((v nil))
+			    (setf v (mem-ref renderpass '%vk::render-pass))
+			    (unless (null-pointer-p v) v)
+			    )))))
 
 (defun create-pipeline-layout (device)
   (with-foreign-object (layout '%vk::pipeline-layout)
     (setf (mem-ref layout '%vk:pipeline-layout) (null-pointer))
+    (let ((*flags* nil))
     (vk::awith-vk-structs ((layout-info %vk::pipeline-layout-create-info *pipeline-layout-value*))
       (%vk::create-pipeline-layout device layout-info (null-pointer) layout)
       (let ((v nil))
 	(setf v (mem-ref layout '%vk::pipeline-layout))
 	(unless (null-pointer-p v) v)
-	))))
+	)))))
 
-(defun create-graphics-pipeline (device vert-module frag-module pipeline-layout render-pass)
+(defun create-graphics-pipeline (device
+				 vert-module
+				 frag-module
+				 pipeline-layout
+				 render-pass)
   (with-foreign-object (graphics-pipeline '%vk::pipeline)
     (setf (mem-ref graphics-pipeline '%vk::pipeline) (null-pointer))
     (let ((*vertex-module* vert-module)
 	  (*fragment-module* frag-module)
 	  (*pipeline-layout* pipeline-layout)
-	  (*render-pass* render-pass))
+	  (*render-pass* render-pass)
+	  (*flags* nil)
+	  (*vertex-binding-point1* 0)
+	  (*stride1* (foreign-type-size '(:struct raw-vertex)))
+	  (*attribute-binding-point1* 0)
+	  (*attribute-binding-location1* 0)
+	  (*attribute-format1* :r32g32b32a32-sfloat)
+	  (*attribute-offset1* (foreign-slot-offset '(:struct raw-vertex) 'vertex)))
     (vk::awith-vk-structs ((gpci %vk::graphics-pipeline-create-info *graphics-pipeline-value*))
       (%vk::create-graphics-pipelines device (null-pointer) 1 gpci (null-pointer) graphics-pipeline)
       (let ((v nil))
@@ -116,7 +130,8 @@
   (with-foreign-objects ((fbuffer '%vk::framebuffer)
 			 (*attachments-pointer* '%vk::image-view 1))
     (setf (mem-ref *attachments-pointer* '%vk::image-view) attachments)
-    (let ((*render-pass* render-pass))
+    (let ((*render-pass* render-pass)
+	  (*flags* nil))
     (vk::awith-vk-structs ((framebuffer-info %vk::framebuffer-create-info *framebuffer-info-value*))
       (%vk::create-framebuffer device framebuffer-info (null-pointer) fbuffer)
       (let ((v nil))
@@ -129,7 +144,8 @@
   (with-foreign-object (buffer '%vk::buffer)
     (let ((*buffer-usage-flags* usage-flags)
 	  (*sharing-mode* sharing-mode)
-	  (*size* size))
+	  (*size* size)
+	  (*flags* nil))
       (vk::awith-vk-structs ((buffer-info %vk::buffer-create-info *buffer-create-info-value*))
 	(setf (mem-ref buffer '%vk::buffer) (null-pointer))
 	(%vk::create-buffer device buffer-info (null-pointer) buffer)
@@ -145,7 +161,8 @@
       (multiple-value-setq (memory-type-index memory-size memory-alignment)
 	(get-memory-details phy-device device buffer flags-to-check))
     (let ((*allocation-size* memory-size)
-	  (*memory-type-index* memory-type-index))
+	  (*memory-type-index* memory-type-index)
+	  (*flags* nil))
       (with-foreign-object (device-memory '%vk::device-memory)
 	(setf (mem-ref device-memory '%vk::device-memory) (null-pointer))
 	(vk::awith-vk-structs ((allocate-info
@@ -156,9 +173,23 @@
 	    (setf v (mem-ref device-memory '%vk::device-memory))
 	    (unless (null-pointer-p v) v)))))))
 
-(defun record-commands (command-buffer swapchain-framebuffer render-pass graphics-pipeline)
+(defun record-commands (command-buffer
+			swapchain-framebuffer
+			render-pass
+			graphics-pipeline
+		        vertex-buffer
+			index-buffer
+			vertex-buffer-offset
+			index-buffer-offset)
       (let ((*framebuffer* swapchain-framebuffer)
-	    (*render-pass* render-pass))
+	    (*render-pass* render-pass)
+	    (*flags* nil))
+	(with-foreign-objects ((vertex-buffers '%vk::buffer 1)
+			       (vertex-buffer-offsets '%vk::device-size 1)
+			       (index-buffers '%vk::buffer 1)
+			       (index-buffer-offsets '%vk::device-size 1))
+	  (setf (mem-ref vertex-buffers '%vk::buffer) vertex-buffer)
+	  (setf (mem-ref vertex-buffer-offsets '%vk::device-size) vertex-buffer-offset)
 	(vk::awith-vk-structs ((cmd-begin-info %vk::command-buffer-begin-info *command-begin-info-value*)
 			       (render-begin-info %vk::render-pass-begin-info *render-pass-begin-info*))
 	  
@@ -166,15 +197,19 @@
 	  (%vk:begin-command-buffer command-buffer cmd-begin-info)
 	  (%vk:cmd-begin-render-pass command-buffer render-begin-info :inline)
 	  (%vk:cmd-bind-pipeline command-buffer :graphics graphics-pipeline)
-	  (%vk:cmd-draw command-buffer 3 1 0 0)
+	  (%vk:cmd-bind-vertex-buffers command-buffer 0 1 vertex-buffers vertex-buffer-offsets)
+	  (%vk:cmd-bind-index-buffer command-buffer index-buffer index-buffer-offset :uint32)
+	  (%vk:cmd-draw-indexed command-buffer (length *indices*) 1 0 0 0)
 	  (%vk:cmd-end-render-pass command-buffer)
 	  (%vk:end-command-buffer command-buffer)
-	  )))
+	  ))))
 
 (defun submit-queue (queue wait-semaphore signal-semaphore wait-fence command-buffer)
   (let ((*wait-semaphore-count* 1)
 	(*signal-semaphore-count* 1)
-	(*command-buffer-count* 1))
+	(*command-buffer-count* 1)
+	(*flags* nil)
+	(*wait-dst-stage-mask* '(:color-attachment-output)))
     (with-foreign-objects ((*command-buffers* '%vk::command-buffer 1)
 			   (*wait-semaphores* '%vk::semaphore 1)
 			   (*signal-semaphores* '%vk::semaphore 1))
@@ -186,7 +221,8 @@
       ))))
 
 (defun present-queue (queue wait-semaphore swapchains index)
-  (let ((*wait-semaphore-count* 1))
+  (let ((*wait-semaphore-count* 1)
+	(*flags* nil))
     (with-foreign-objects ((*image-index* :uint32 1)
 			   (*wait-semaphores* '%vk::semaphore 1)
 			   (*swapchains* '%vk::swapchain-khr 1)
@@ -247,8 +283,8 @@
   (setf *swapchain-image-views* (nreverse *swapchain-image-views*))
   (store-resource "image-view" "swapchain-image-view1" (car *swapchain-image-views*))
   (store-resource "image-view" "swapchain-image-view2" (cadr *swapchain-image-views*))
-  (setf *vertex-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground2/vert.spv" ))
-  (setf *fragment-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground2/frag.spv"))
+  (setf *vertex-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground3/vert.spv" ))
+  (setf *fragment-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground3/frag.spv"))
   (store-resource "shader" "vertex-shader" *vertex-shader*)
   (store-resource "shader" "fragment-shader" *fragment-shader*)
   (setf *render-pass* (create-render-pass *device*))
@@ -265,7 +301,14 @@
   (store-resource "framebuffer" "swapchain-framebuffer2" (cadr *swapchain-framebuffers*))
   (iter (for command-buffer in *command-buffers*)
 	(for swapchain-framebuffer in *swapchain-framebuffers*)
-	(record-commands command-buffer swapchain-framebuffer *render-pass* *graphics-pipeline*)))
+	(record-commands command-buffer
+			 swapchain-framebuffer
+			 *render-pass*
+			 *graphics-pipeline*
+			 *buffer*
+			 *buffer*
+			 0
+			 (* (foreign-type-size '(:struct raw-vertex)) (length *vertices*)))))
 
 
 (defun free-command-buffers ()
@@ -349,13 +392,19 @@
 		  for (nil . resource) in v
 		  unless (null-pointer-p resource)
 		  do (%vk:free-memory device resource (null-pointer))))
+	      ((equalp "descriptor-set-layout" k)
+	       (loop
+		  for (nil . resource) in v
+		  unless (null-pointer-p resource)
+		  do (%vk:destroy-descriptor-set-layout device resource (null-pointer))))
 	       )
        )
   (let ((to-remove-list '("shader"
 			  "semaphore"
 			  "fence"
 			  "buffer"
-			  "device-memory")))
+			  "device-memory"
+			  "descriptor-set-layout")))
     (iter (for (key value) in-hashtable *vulkan-state-book*)
 	  (if (member key to-remove-list :test #'equal) (setf (gethash key *vulkan-state-book*) nil))))
   (destroy-swapchain-resources instance device))

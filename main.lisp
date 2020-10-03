@@ -1,40 +1,5 @@
 (in-package #:playground3)
 
-(defparameter *vulkan-state-book* (make-hash-table :test 'equalp))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;Alright, if you have come to such
-;;a state of affairs, you need to think
-;;about the architecture of your application
-(defparameter *phy-device* nil)
-(defparameter *device* nil)
-(defparameter *instance* nil)
-(defparameter *surface* nil)
-(defparameter *present-queue* nil)
-
-(defparameter *swapchain* nil)
-(defparameter *swapchain-images* nil)
-(defparameter *swapchain-image-views* '())
-(defparameter *swapchain-framebuffers* '())
-
-(defparameter *command-pool* nil)
-(defparameter *command-buffers* '())
-
-(defparameter *render-pass* nil)
-(defparameter *pipeline-layout* nil)
-(defparameter *graphics-pipeline* nil)
-
-(defparameter *vertex-shader* nil)
-(defparameter *fragment-shader* nil)
-
-(defparameter *semaphores* '())
-(defparameter *fences* '())
-
-(defparameter *buffer* '())
-
-(defparameter *device-memory* '())
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defun main()
   (declare (optimize (debug 3) (speed 0) (safety 0)))
   ;;(setf *width* 250)
@@ -46,6 +11,8 @@
       *present-queue*
       *width*
       *height*
+    (setf *cffi-pointer* nil)
+    (unwind-protect (progn 
       
     (reset-hash-table *vulkan-state-book*)
 
@@ -70,22 +37,21 @@
 	  (setf *fences* '())
 	  (setf *buffer* '())
 	  (setf *device-memory* '())
+	  (setf *staging-buffer* '())
+	  (setf *staging-memory* '())
+	  (setf *staging-command-buffer* nil)
 
-	  ;(setf *buffer* (create-buffer *device* '(:vertex-buffer) :exclusive 100))
-	  ;(store-resource "buffer" "buffer1" *buffer*)
-	  ;(get-memory-details (car *phy-devices*) *device* *buffer* '(:host-visible :host-coherent))
-	  ;;(break)
-	  ;(setf *device-memory* (allocate-memory (car *phy-devices*)
-	;					 *device*
-	;					 *buffer*
-	;					 '(:host-visible :host-coherent)))
-	 ; (store-resource "device-memory" "device-memory1" *device-memory*)
 	  
 	  (multiple-value-setq (*swapchain* *swapchain-images*) (create-swapchain-with-images *device* *surface*))
 	  (store-resource "swapchain" "swapchain" *swapchain*)
 	  (setf *command-buffers* (vk:allocate-command-buffers *device* *command-pool* 2 :level :primary))
 	  (store-resource "command-buffer" "command-buffer1" (car *command-buffers*))
-	   (store-resource "command-buffer" "command-buffer1" (cadr *command-buffers*))
+	  (store-resource "command-buffer" "command-buffer1" (cadr *command-buffers*))
+
+	  (setf *vertices*  (obj-reader:get-ver-norm-tex-arrays #P"/media/ajith/Lindows/lisp-projects/obj-reader/sample-obj"))
+	  (setf *indices* (obj-reader:get-compressed-indices #P"/media/ajith/Lindows/lisp-projects/obj-reader/sample-obj"))
+	  (copy-model-to-stage *device* *vertices* nil nil nil *indices*)
+	  
 	
 	;;(setf swap-chain-images (nreverse swap-chain-images))
 	(loop for image in *swapchain-images*
@@ -93,12 +59,14 @@
 	(setf *swapchain-image-views* (nreverse *swapchain-image-views*))
 	(store-resource "image-view" "swapchain-image-view1" (car *swapchain-image-views*))
 	(store-resource "image-view" "swapchain-image-view2" (cadr *swapchain-image-views*))
-	(setf *vertex-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground2/vert.spv" ))
-	(setf *fragment-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground2/frag.spv"))
+	(setf *vertex-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground3/vert.spv" ))
+	(setf *fragment-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground3/frag.spv"))
 	(store-resource "shader" "vertex-shader" *vertex-shader*)
 	(store-resource "shader" "fragment-shader" *fragment-shader*)
 	(setf *render-pass* (create-render-pass *device*))
 	(store-resource "renderpass" "render-pass" *render-pass*)
+	(setf *descriptor-set-layout* (create-descriptor-set-layout *device*))
+	(store-resource "descritpor-set-layout" "mvp-layout" *descriptor-set-layout*)
 	(setf *pipeline-layout* (create-pipeline-layout *device*))
 	(store-resource "pipeline-layout" "pipeline-layout" *pipeline-layout*)
 	(setf *graphics-pipeline* (create-graphics-pipeline *device* *vertex-shader*
@@ -111,7 +79,14 @@
 	(store-resource "framebuffer" "swapchain-framebuffer2" (cadr *swapchain-framebuffers*))
 	(iter (for command-buffer in *command-buffers*)
 	      (for swapchain-framebuffer in *swapchain-framebuffers*)
-	      (record-commands command-buffer swapchain-framebuffer *render-pass* *graphics-pipeline*))
+	      (record-commands command-buffer
+			       swapchain-framebuffer
+			       *render-pass*
+			       *graphics-pipeline*
+			       *buffer*
+			       *buffer*
+			       0
+			       (* (foreign-type-size '(:struct raw-vertex)) (length *vertices*))))
 	
 	(iter (for i from 0 below 4)
 	      (push (vk::create-semaphore *device*) *semaphores*))
@@ -172,4 +147,6 @@
 	       ;;(queue-wait-idle *present-queue*)
 	       ))
 	(device-wait-idle *device*)
-	(destroy-resources *instance* *device*)))))
+	(destroy-resources *instance* *device*))))
+      (when *cffi-pointer* (foreign-free *cffi-pointer*)))
+    ))
