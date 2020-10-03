@@ -8,7 +8,7 @@
 						     :p-bindings (((:binding (0)
 								   :descriptor-type (:uniform-buffer)
 								   :descriptor-count (1)
-								   :shader-stage-flags ('(:vertex :fragment))
+								   :stage-flags ('(:vertex :fragment))
 								   :p-immutable-samplers (((null-pointer)))
 					  )))
 						     )))

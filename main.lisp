@@ -67,7 +67,7 @@
 	(store-resource "renderpass" "render-pass" *render-pass*)
 	(setf *descriptor-set-layout* (create-descriptor-set-layout *device*))
 	(store-resource "descritpor-set-layout" "mvp-layout" *descriptor-set-layout*)
-	(setf *pipeline-layout* (create-pipeline-layout *device*))
+	(setf *pipeline-layout* (create-pipeline-layout *device* 1 *descriptor-set-layout*))
 	(store-resource "pipeline-layout" "pipeline-layout" *pipeline-layout*)
 	(setf *graphics-pipeline* (create-graphics-pipeline *device* *vertex-shader*
 							  *fragment-shader* *pipeline-layout* *render-pass*))

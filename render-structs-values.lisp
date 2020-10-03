@@ -44,10 +44,10 @@
 					  
 
 (defparameter *pipeline-layout-value* '((:s-type (:pipeline-layout-create-info)
-					 :set-layout-count (0)
+					 :set-layout-count (*set-layout-count*)
 					 :flags (*flags*)
 					 :p-next ((null-pointer))
-					 :p-set-layouts (((null-pointer)))
+					 :p-set-layouts ((*p-set-layouts*))
 					 :push-constant-range-count (0)
 					 :p-push-constant-ranges (nil)
 					 )))
