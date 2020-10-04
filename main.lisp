@@ -40,6 +40,9 @@
 	  (setf *staging-buffer* '())
 	  (setf *staging-memory* '())
 	  (setf *staging-command-buffer* nil)
+	  (setf *mvp-buffers* '())
+	  (setf *mvp-memories* '())
+	  (setf *descriptor-sets* '())
 
 	  
 	  (multiple-value-setq (*swapchain* *swapchain-images*) (create-swapchain-with-images *device* *surface*))
@@ -48,8 +51,10 @@
 	  (store-resource "command-buffer" "command-buffer1" (car *command-buffers*))
 	  (store-resource "command-buffer" "command-buffer1" (cadr *command-buffers*))
 
-	  (setf *vertices*  (obj-reader:get-ver-norm-tex-arrays #P"/media/ajith/Lindows/lisp-projects/obj-reader/sample-obj"))
-	  (setf *indices* (obj-reader:get-compressed-indices #P"/media/ajith/Lindows/lisp-projects/obj-reader/sample-obj"))
+	  #|(setf *vertices*  (obj-reader:get-ver-norm-tex-arrays #P"/media/ajith/Lindows/lisp-projects/obj-reader/sample-obj"))
+	  (setf *indices* (obj-reader:get-compressed-indices #P"/media/ajith/Lindows/lisp-projects/obj-reader/sample-obj"))|#
+	  (multiple-value-setq (*vertices* *uvs* *normals* *indices*)
+	    (get-vertices-uvs-normals-indices #P"/media/ajith/Lindows/models/vulkan-models/sample-obj.obj"))
 	  (copy-model-to-stage *device* *vertices* nil nil nil *indices*)
 	  
 	
@@ -59,19 +64,33 @@
 	(setf *swapchain-image-views* (nreverse *swapchain-image-views*))
 	(store-resource "image-view" "swapchain-image-view1" (car *swapchain-image-views*))
 	(store-resource "image-view" "swapchain-image-view2" (cadr *swapchain-image-views*))
+	
 	(setf *vertex-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground3/vert.spv" ))
 	(setf *fragment-shader* (create-shader-module *device* #P"/media/ajith/Lindows/lisp-projects/playground3/frag.spv"))
 	(store-resource "shader" "vertex-shader" *vertex-shader*)
 	(store-resource "shader" "fragment-shader" *fragment-shader*)
 	(setf *render-pass* (create-render-pass *device*))
 	(store-resource "renderpass" "render-pass" *render-pass*)
+	
+	
 	(setf *descriptor-set-layout* (create-descriptor-set-layout *device*))
+	(setf *descriptor-pool* (create-descriptor-pool *device*))
+	(store-resource "descriptor-pool" "desc-pool" *descriptor-pool*)
 	(store-resource "descritpor-set-layout" "mvp-layout" *descriptor-set-layout*)
+	(iter (for resource in (create-descriptor-sets
+				*device*
+				*descriptor-set-layout*
+				*descriptor-pool*))
+	      (push resource *descriptor-sets*))
+	(create-mvp-buffers *device*)
+	(update-descriptor-sets *device* *mvp-buffers* *descriptor-sets*)
 	(setf *pipeline-layout* (create-pipeline-layout *device* 1 *descriptor-set-layout*))
 	(store-resource "pipeline-layout" "pipeline-layout" *pipeline-layout*)
 	(setf *graphics-pipeline* (create-graphics-pipeline *device* *vertex-shader*
 							  *fragment-shader* *pipeline-layout* *render-pass*))
 	(store-resource "graphics-pipeline" "graphics-pipeline" *graphics-pipeline*)
+	
+
 	(loop for image-view in *swapchain-image-views*
 	   do (push (create-framebuffer *device* image-view *render-pass*) *swapchain-framebuffers*))
 	(setf *swapchain-framebuffers* (nreverse *swapchain-framebuffers*))
@@ -79,6 +98,7 @@
 	(store-resource "framebuffer" "swapchain-framebuffer2" (cadr *swapchain-framebuffers*))
 	(iter (for command-buffer in *command-buffers*)
 	      (for swapchain-framebuffer in *swapchain-framebuffers*)
+	      (for desc-set in *descriptor-sets*)
 	      (record-commands command-buffer
 			       swapchain-framebuffer
 			       *render-pass*
@@ -86,7 +106,9 @@
 			       *buffer*
 			       *buffer*
 			       0
-			       (* (foreign-type-size '(:struct raw-vertex)) (length *vertices*))))
+			       (* (foreign-type-size '(:struct raw-vertex)) (length *vertices*))
+			       *pipeline-layout*
+			       desc-set))
 	
 	(iter (for i from 0 below 4)
 	      (push (vk::create-semaphore *device*) *semaphores*))
@@ -113,6 +135,12 @@
 					     MAX_UINT64
 					     (nth 0 presentation-complete-semaphores)
 					     (null-pointer)))
+	       (update-mvp-matrices)
+	       (fill-mvp-buffer *device*
+				index
+				*model-matrix*
+				*view-matrix*
+				*projection-matrix*)
 	       (pop current-fence)
 	       (push (nth index wait-fences) current-fence)
 	       (vk::wait-for-fences *device* current-fence t MAX_UINT64)

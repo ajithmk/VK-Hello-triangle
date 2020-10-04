@@ -8,6 +8,10 @@
 (defparameter *mat2* #(1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0))
 (defparameter *mat3* #(1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0))
 
+(defparameter *model-matrix* #(1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0))
+(defparameter *view-matrix* #(1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0))
+(defparameter *projection-matrix* #(1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0))
+
 (defun matrix-multiply (a b dest)
   (declare (optimize (speed 3) (safety 0) (space 0) (debug 0)))
   (declare (simple-vector a b dest))
@@ -102,4 +106,7 @@
   (setf (svref dest-matrix 14) 0.0)
   (setf (svref dest-matrix 15) 1.0)
   dest-matrix))
+
+(defun update-mvp-matrices ()
+  )
 

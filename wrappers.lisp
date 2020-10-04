@@ -184,16 +184,20 @@
 		        vertex-buffer
 			index-buffer
 			vertex-buffer-offset
-			index-buffer-offset)
+			index-buffer-offset
+			pipeline-layout
+			desc-set)
       (let ((*framebuffer* swapchain-framebuffer)
 	    (*render-pass* render-pass)
 	    (*flags* nil))
 	(with-foreign-objects ((vertex-buffers '%vk::buffer 1)
 			       (vertex-buffer-offsets '%vk::device-size 1)
 			       (index-buffers '%vk::buffer 1)
-			       (index-buffer-offsets '%vk::device-size 1))
+			       (index-buffer-offsets '%vk::device-size 1)
+			       (desc-set-ref '%vk::descriptor-set 1))
 	  (setf (mem-ref vertex-buffers '%vk::buffer) vertex-buffer)
 	  (setf (mem-ref vertex-buffer-offsets '%vk::device-size) vertex-buffer-offset)
+	  (setf (mem-ref desc-set-ref '%vk::descriptor-set) desc-set)
 	(vk::awith-vk-structs ((cmd-begin-info %vk::command-buffer-begin-info *command-begin-info-value*)
 			       (render-begin-info %vk::render-pass-begin-info *render-pass-begin-info*))
 	  
@@ -203,6 +207,11 @@
 	  (%vk:cmd-bind-pipeline command-buffer :graphics graphics-pipeline)
 	  (%vk:cmd-bind-vertex-buffers command-buffer 0 1 vertex-buffers vertex-buffer-offsets)
 	  (%vk:cmd-bind-index-buffer command-buffer index-buffer index-buffer-offset :uint32)
+	  (%vk:cmd-bind-descriptor-sets command-buffer :graphics
+					pipeline-layout
+					0 1
+					desc-set-ref
+					0 (null-pointer))
 	  (%vk:cmd-draw-indexed command-buffer (length *indices*) 1 0 0 0)
 	  (%vk:cmd-end-render-pass command-buffer)
 	  (%vk:end-command-buffer command-buffer)
@@ -305,6 +314,7 @@
   (store-resource "framebuffer" "swapchain-framebuffer2" (cadr *swapchain-framebuffers*))
   (iter (for command-buffer in *command-buffers*)
 	(for swapchain-framebuffer in *swapchain-framebuffers*)
+	(for desc-set in *descriptor-sets*)
 	(record-commands command-buffer
 			 swapchain-framebuffer
 			 *render-pass*
@@ -312,7 +322,9 @@
 			 *buffer*
 			 *buffer*
 			 0
-			 (* (foreign-type-size '(:struct raw-vertex)) (length *vertices*)))))
+			 (* (foreign-type-size '(:struct raw-vertex)) (length *vertices*))
+			 *pipeline-layout*
+			 desc-set)))
 
 
 (defun free-command-buffers ()
@@ -401,6 +413,11 @@
 		  for (nil . resource) in v
 		  unless (null-pointer-p resource)
 		  do (%vk:destroy-descriptor-set-layout device resource (null-pointer))))
+	      ((equalp "descriptor-pool" k)
+	       (loop
+		  for (nil . resource) in v
+		  unless (null-pointer-p resource)
+		  do (%vk:destroy-descriptor-pool device resource (null-pointer))))
 	       )
        )
   (let ((to-remove-list '("shader"

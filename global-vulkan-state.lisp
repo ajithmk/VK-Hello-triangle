@@ -17,6 +17,9 @@
 (defparameter *swapchain-image-views* '())
 (defparameter *swapchain-framebuffers* '())
 
+(defparameter *descriptor-pool* nil)
+(defparameter *descriptor-sets* '())
+
 (defparameter *command-pool* nil)
 (defparameter *command-buffers* '())
 (defparameter *staging-command-buffer* nil)
@@ -34,9 +37,11 @@
 
 (defparameter *buffer* '())
 (defparameter *staging-buffer* '())
+(defparameter *mvp-buffers* '())
 
 (defparameter *device-memory* '())
 (defparameter *staging-memory* '())
+(defparameter *mvp-memories* '())
 
 (defparameter *cffi-pointer* nil)
 
